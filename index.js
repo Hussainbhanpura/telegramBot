@@ -40,7 +40,6 @@ const DESIRED_COMPANIES = [
 const matchCompanyNames = (name1, name2) => {
     const normalized_name1 = name1.replace(/[^\w\s]/gi, '').toLowerCase().replace('gb', '');
     const normalized_name2 = name2.replace(/[^\w\s]/gi, '').toLowerCase().replace('gb', '');
-    console.log("Comparing " + normalized_name1 + " " + normalized_name2);
     return normalized_name1.includes(normalized_name2);
 };
 
@@ -60,9 +59,6 @@ const matchProductNames = (name1, name2) => {
 
     const split_name1 = normalizeAndSplit(name1);
     const split_name2 = normalizeAndSplit(name2);
-
-    console.log("Splitting and comparing:", split_name1, split_name2);
-
     // Check if every word in split_name2 is present in split_name1
     const allWordsPresent = split_name2.every(word => split_name1.includes(word));
 
