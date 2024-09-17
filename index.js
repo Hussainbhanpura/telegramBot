@@ -6,6 +6,8 @@ const { MongoClient } = require('mongodb');
 require('dotenv').config();
 const express = require('express');
 const app = express();
+const { join } = require("path");
+
 
 // Environment variables
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -36,13 +38,15 @@ const DESIRED_COMPANIES = [
 ];
 
 const matchCompanyNames = (name1, name2) => {
-    const normalized_name1 = name1.replace(/[^\w\s]/gi, '').toLowerCase().replace('gb', '').trim();
-    const normalized_name2 = name2.replace(/[^\w\s]/gi, '').toLowerCase().replace('gb', '').trim();
+    const normalized_name1 = name1.replace(/[^\w\s]/gi, '').toLowerCase().replace('gb', '');
+    const normalized_name2 = name2.replace(/[^\w\s]/gi, '').toLowerCase().replace('gb', '');
+    console.log("Comparing " + normalized_name1 + " " + normalized_name2);
     return normalized_name1.includes(normalized_name2);
 };
 
 // Function to match product names
 const matchProductNames = (name1, name2) => {
+    // Function to normalize and split the names
     const normalizeAndSplit = (name) => {
         return name
             .replace(/(\s?)\(([^)]*)\)(\s?)/g, '$1$2$3')
@@ -57,20 +61,25 @@ const matchProductNames = (name1, name2) => {
     const split_name1 = normalizeAndSplit(name1);
     const split_name2 = normalizeAndSplit(name2);
 
+    console.log("Splitting and comparing:", split_name1, split_name2);
+
     // Check if every word in split_name2 is present in split_name1
-    return split_name2.every(word => split_name1.includes(word));
+    const allWordsPresent = split_name2.every(word => split_name1.includes(word));
+
+    return allWordsPresent;
 };
+
 
 // Start listening for messages
 bot.on('message', async (msg) => {
     const chatId = String(msg.chat.id);
     const userMessage = msg.text;
-
     // Check if the message is from the correct group
     if (chatId === TELEGRAM_GROUP_CHAT_ID) {
-        const product = PRODUCTS.find(p => matchProductNames(p, userMessage));
+        console.log("in chat");
+        const product = PRODUCTS.find(p => matchProductNames(p,userMessage));
         if (product) {
-            let client;
+            let client; // Define client variable outside of try block
 
             try {
                 // Connect to MongoDB
@@ -101,14 +110,15 @@ bot.on('message', async (msg) => {
         } else {
             bot.sendMessage(chatId, 'Product not recognized. Please send a valid product name.');
         }
-    }
-});
+    }});
 
+const cacheDirectory = join(__dirname, ".cache", "puppeteer");
 // Setup Puppeteer driver
 const setupBrowser = async () => {
     return await puppeteer.launch({
-        headless: true, // Use headless mode
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        headless: false, // Change to 'false' to see the browser in action
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        userDataDir: cacheDirectory, // This tells Puppeteer to use the cache directory
     });
 };
 
@@ -125,21 +135,22 @@ const scrapeGoogleShopping = async (browser, product) => {
 
         // Wait for the shopping results to appear
         await page.waitForSelector('table.AHFItb');
-        await page.waitForTimeout(5000);
+        await new Promise(resolve => setTimeout(resolve, 5000));
 
         const rows = await page.$$('tr.LvCS6d');
         for (const row of rows) {
             const columns = await row.$$('td.gWeIWe');
-            const Company = await columns[0].evaluate(el => el.textContent.trim());
-            const Product = await columns[1].evaluate(el => el.textContent.trim());
+            const Company = await columns[0].evaluate(el => el.textContent);
+            const Product = await columns[1].evaluate(el => el.textContent);
             const Price = await columns[3].evaluate(el => el.querySelector('span.Pgbknd').textContent.replace("₹", "").replace(",", ""));
-
+            
             if (
-                matchProductNames(Product, product) && 
+                matchProductNames(Product,product) && 
                 DESIRED_COMPANIES.some(desiredCompany => matchCompanyNames(Company, desiredCompany))
             ) {
                 results.add({ Company, Product, Price });
             }
+            
         }
         return results;
     } catch (error) {
@@ -154,7 +165,7 @@ const sendTelegramAlert = async (message) => {
     const payload = { chat_id: TELEGRAM_GROUP_CHAT_ID, text: message };
 
     try {
-        await axios.post(url, payload);
+        const response = await axios.post(url, payload);
         console.log('Telegram alert sent successfully');
     } catch (error) {
         console.log(`Error sending Telegram alert: ${error}`);
@@ -168,18 +179,32 @@ const saveResults = async (results, product) => {
         const db = client.db('test');
         const collection = db.collection('iphone_prices');
 
-        const bulkOps = [...results].map(result => ({
-            updateOne: {
-                filter: { Company: result.Company, Product: product },
-                update: { $set: { Price: result.Price, Timestamp: new Date() } },
-                upsert: true
-            }
-        }));
+        for (const result of results) {
+            const existingDocument = await collection.findOne({ Company: result.Company, Product: product });
 
-        if (bulkOps.length > 0) {
-            await collection.bulkWrite(bulkOps);
-            console.log(`Saved results for ${product}`);
+            if (existingDocument) {
+                if (existingDocument.Price != result.Price) {
+                    await collection.updateOne(
+                        { _id: existingDocument._id },
+                        { $set: { Price: result.Price, Timestamp: new Date() } }
+                    );
+                    await sendTelegramAlert(`Price Update for:\nCompany: ${result.Company}\nProduct: ${product}\nNew Price: ₹${result.Price}`);
+                    console.log(`Price Update for:\nCompany: ${result.Company}\nProduct: ${result.Product}\nNew Price:₹${result.Price}`)
+                }
+            } else {
+                await collection.insertOne({
+                    Company: result.Company,
+                    Product: product,
+                    RealProduct : result.Product,
+                    Price: result.Price,
+                    Timestamp: new Date()
+                });
+                await sendTelegramAlert(`New product added:\nCompany: ${result.Company}\nProduct: ${product}\nPrice: ₹${result.Price}`);
+                console.log(`New product added:\nCompany: ${result.Company}\nProduct: ${result.Product}\nPrice: ₹${result.Price}`);
+            }
         }
+
+        console.log(`Scraping completed for ${product}. Results saved to MongoDB.`);
         client.close();
     } catch (error) {
         console.log(`Error saving results: ${error}`);
@@ -190,7 +215,9 @@ const saveResults = async (results, product) => {
 const runScraper = async (product) => {
     const browser = await setupBrowser();
     const results = await scrapeGoogleShopping(browser, product);
+    console.log(results);
     await saveResults(results, product);
+    await new Promise(resolve => setTimeout(resolve, 5000));
     await browser.close();
 };
 
@@ -198,6 +225,7 @@ const runScraper = async (product) => {
 const scheduleScraper = async () => {
     console.log(`Starting sequential scraping for products every ${SCRAPE_INTERVAL_MINUTES} minutes`);
 
+    // Sequentially scrape all products
     for (const product of PRODUCTS) {
         console.log(`Scraping ${product}`);
         await runScraper(product);
@@ -210,7 +238,7 @@ app.get("/", async (req, res) => {
     if (!global.scraperStarted) {
         await scheduleScraper();
         cron.schedule(`*/${SCRAPE_INTERVAL_MINUTES} * * * *`, async () => {
-            await scheduleScraper();
+            await scheduleScraper(); // Sequentially scrape the products in intervals
         });
         global.scraperStarted = true;
     }
@@ -218,8 +246,10 @@ app.get("/", async (req, res) => {
 });
 
 const removeParentheses = (str) => {
+    // Replace parentheses while keeping the content inside and preserving spaces before and after
     return str.replace(/(\s?)\(([^)]*)\)(\s?)/g, '$1$2$3');
 };
+
 
 // Start server
 app.listen(PORT, () => {
