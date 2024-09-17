@@ -123,7 +123,7 @@ const cacheDirectory = join(__dirname, ".cache", "puppeteer");
 // Setup Puppeteer driver
 const setupBrowser = async () => {
     return await puppeteer.launch({
-        headless: false,
+        headless: true,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -138,7 +138,36 @@ const scrapeGoogleShopping = async (browser, product) => {
     let results = new Set();
     try {
         const page = await browser.newPage();
-        await page.goto(`https://www.google.co.in/search?q=${product.replace(/\s+/g, "+")}`);
+        
+        // Set a realistic user agent
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+
+        // Emulate geolocation
+        await page.evaluateOnNewDocument(function() {
+            navigator.geolocation.getCurrentPosition = function (cb) {
+                setTimeout(() => {
+                    cb({
+                        coords: {
+                            accuracy: 21,
+                            altitude: null,
+                            altitudeAccuracy: null,
+                            heading: null,
+                            latitude: 28.6139,  // New Delhi latitude
+                            longitude: 77.2090, // New Delhi longitude
+                            speed: null
+                        }
+                    });
+                }, 1000);
+            };
+        });
+
+        // Set the language and location headers
+        await page.setExtraHTTPHeaders({
+            'Accept-Language': 'en-IN,en;q=0.9',
+        });
+
+        // Navigate to Google India
+        await page.goto(`https://www.google.co.in/search?q=${product.replace(/\s+/g, "+")}&gl=in&hl=en`);
         
         // Wait for the shopping tab and click it
         await page.waitForSelector('button[data-name="stores"]', { visible: true, timeout: 10000 });
