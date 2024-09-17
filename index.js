@@ -109,7 +109,7 @@ bot.on('message', async (msg) => {
     }});
 
     bot.on('polling_error', (error) => {
-        console.error('Polling error:', error);
+        console.error('Polling error');
         bot.stopPolling().then(() => {
           console.log('Polling stopped');
           setTimeout(() => {
@@ -138,7 +138,7 @@ const scrapeGoogleShopping = async (browser, product) => {
     let results = new Set();
     try {
         const page = await browser.newPage();
-        await page.goto(`https://www.google.com/search?q=${product.replace(/\s+/g, "+")}`);
+        await page.goto(`https://www.google.co.in/search?q=${product.replace(/\s+/g, "+")}`);
         
         // Wait for the shopping tab and click it
         await page.waitForSelector('button[data-name="stores"]', { visible: true, timeout: 10000 });
