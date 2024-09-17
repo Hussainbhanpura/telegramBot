@@ -13,7 +13,7 @@ const { join } = require("path");
 const MONGODB_URI = process.env.MONGODB_URI;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_GROUP_CHAT_ID = process.env.TELEGRAM_GROUP_CHAT_ID;
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 const SCRAPE_INTERVAL_MINUTES = process.env.SCRAPE_INTERVAL_MINUTES || 10;
 
 // Create a new Telegram bot instance
@@ -246,8 +246,6 @@ const scheduleScraper = async () => {
 
 // Start the scraper when the app is started
 app.get("/", async (req, res) => {
-    const browser = await setupBrowser();
-    browser.close();
     if (!global.scraperStarted) {
         await scheduleScraper();
         cron.schedule(`*/${SCRAPE_INTERVAL_MINUTES} * * * *`, async () => {
@@ -258,14 +256,8 @@ app.get("/", async (req, res) => {
     res.send("Scraper started");
 });
 
-const removeParentheses = (str) => {
-    // Replace parentheses while keeping the content inside and preserving spaces before and after
-    return str.replace(/(\s?)\(([^)]*)\)(\s?)/g, '$1$2$3');
-};
-
 
 // Start server
 app.listen(PORT, () => {
-   
     console.log(`Server running on port ${PORT}`);
 });
