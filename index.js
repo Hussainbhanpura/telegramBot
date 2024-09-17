@@ -123,7 +123,7 @@ const cacheDirectory = join(__dirname, ".cache", "puppeteer");
 // Setup Puppeteer driver
 const setupBrowser = async () => {
     return await puppeteer.launch({
-        headless: true,
+        headless: false,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
