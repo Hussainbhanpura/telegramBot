@@ -130,7 +130,6 @@ const setupBrowser = async () => {
       '--disable-dev-shm-usage',
       '--single-process'
     ],
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
     });
 };
 
