@@ -123,9 +123,14 @@ const cacheDirectory = join(__dirname, ".cache", "puppeteer");
 // Setup Puppeteer driver
 const setupBrowser = async () => {
     return await puppeteer.launch({
-        headless: true, // Change to 'false' to see the browser in action
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        userDataDir: cacheDirectory, // This tells Puppeteer to use the cache directory
+        headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--single-process'
+    ],
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
     });
 };
 
