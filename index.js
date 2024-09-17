@@ -112,11 +112,22 @@ bot.on('message', async (msg) => {
         }
     }});
 
+    bot.on('polling_error', (error) => {
+        console.error('Polling error:', error);
+        bot.stopPolling().then(() => {
+          console.log('Polling stopped');
+          setTimeout(() => {
+            console.log('Restarting polling');
+            bot.startPolling();
+          }, 10000);  // Wait 10 seconds before restarting
+        });
+      });
+
 const cacheDirectory = join(__dirname, ".cache", "puppeteer");
 // Setup Puppeteer driver
 const setupBrowser = async () => {
     return await puppeteer.launch({
-        headless: false, // Change to 'false' to see the browser in action
+        headless: true, // Change to 'false' to see the browser in action
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
         userDataDir: cacheDirectory, // This tells Puppeteer to use the cache directory
     });
@@ -235,6 +246,8 @@ const scheduleScraper = async () => {
 
 // Start the scraper when the app is started
 app.get("/", async (req, res) => {
+    const browser = await setupBrowser();
+    browser.close();
     if (!global.scraperStarted) {
         await scheduleScraper();
         cron.schedule(`*/${SCRAPE_INTERVAL_MINUTES} * * * *`, async () => {
@@ -253,5 +266,6 @@ const removeParentheses = (str) => {
 
 // Start server
 app.listen(PORT, () => {
+   
     console.log(`Server running on port ${PORT}`);
 });
