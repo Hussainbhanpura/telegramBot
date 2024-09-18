@@ -230,7 +230,6 @@ const saveResults = async (results, product) => {
                         { $set: { Price: result.Price, Timestamp: new Date() } }
                     );
                     await sendTelegramAlert(`Price Update for:\nCompany: ${result.Company}\nProduct: ${product}\nNew Price: ₹${result.Price}`);
-                    console.log(`Price Update for:\nCompany: ${result.Company}\nProduct: ${result.Product}\nNew Price:₹${result.Price}`)
                 }
             } else {
                 await collection.insertOne({
@@ -241,7 +240,6 @@ const saveResults = async (results, product) => {
                     Timestamp: new Date()
                 });
                 await sendTelegramAlert(`New product added:\nCompany: ${result.Company}\nProduct: ${product}\nPrice: ₹${result.Price}`);
-                console.log(`New product added:\nCompany: ${result.Company}\nProduct: ${result.Product}\nPrice: ₹${result.Price}`);
             }
         }
 
@@ -256,7 +254,6 @@ const saveResults = async (results, product) => {
 const runScraper = async (product) => {
     const browser = await setupBrowser();
     const results = await scrapeGoogleShopping(browser, product);
-    console.log(results);
     await saveResults(results, product);
     await new Promise(resolve => setTimeout(resolve, 5000));
     await browser.close();
