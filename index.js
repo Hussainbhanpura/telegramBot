@@ -277,7 +277,6 @@ const scheduleScraper = async () => {
 // Start the scraper when the app is started
 app.get("/", async (req, res) => {
     if (!global.scraperStarted) {
-        await scheduleScraper();
         cron.schedule(`*/${SCRAPE_INTERVAL_MINUTES} * * * *`, async () => {
             await scheduleScraper(); // Sequentially scrape the products in intervals
         });
