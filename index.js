@@ -105,7 +105,7 @@ bot.on('message', async (msg) => {
                 }
             }
         } else {
-            bot.sendMessage(chatId, 'Product not recognized. Please send a valid product name.');
+
         }
     }});
 
