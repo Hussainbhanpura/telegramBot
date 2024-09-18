@@ -47,6 +47,7 @@ const matchCompanyNames = (name1, name2) => {
 const matchProductNames = (name1, name2) => {
     // Function to normalize and split the names
     const normalizeAndSplit = (name) => {
+        if (!name) return []; // Check if name is undefined or null
         return name
             .replace(/(\s?)\(([^)]*)\)(\s?)/g, '$1$2$3')
             .replace(/[^\w\s]/gi, '')  // Remove special characters
